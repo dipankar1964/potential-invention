@@ -1,39 +1,41 @@
-C	CALCULATION OF STATISTICAL PARAMETER FOR LINEAR REGRESSION TREND ANALYSIS OF RELATIVE SEDIMENT DEPOSITION
-
+CALCULATION OF STATISTICAL PARAMETER AND DETECTION OF SHORT AND LONG TERM TRENDS BY DIFFERENT METHODS
+C     FOR RELATIVE SEDIMENT DEPOSITION (DEVELOPED BY DIPANKAR CHAUDHURI, (DVC & ICED, IITR))
 
    	PARAMETER(NSR=365)
 	
 	DIMENSION 
 	1X(10000,NSR),AVGX1(NSR),SDX1(NSR),CVX1(NSR),CSX1(NSR),CKX1(NSR),
- 	1X1MAX(NSR),X1MIN(NSR),NTREND(15,NSR),T(10000),EL(NSR)
+ 	1X1MAX(NSR),X1MIN(NSR),ACOR(2500,NSR),NTREND(15,NSR),
+     1EL(20)
 	
 	
       INTEGER SUMPART(NSR),SUMNPART(NSR)
 	
-      CHARACTER * 80 	RESV,TDATA,UNIT,SERS
+      REAL KOBS(NSR)
 
-	 	         
+  	CHARACTER * 80 	RESV,TDATA,UNIT,SERS
+
+	
+ 	         
  10   FORMAT (80A)	
-C213 	FORMAT(A)
+213 	FORMAT(A)
 C	NAMING OF OUTPUT FILE
 	
 						   
 	
-	OPEN(UNIT=1,FILE='LREGTRND.DAT',STATUS='OLD')
-	OPEN(UNIT=4,FILE='LREGTRND.OUT',STATUS='OLD')
-	OPEN(UNIT=5,FILE='LREGTRNDTAB.OUT',STATUS='OLD')
+	OPEN(UNIT=1,FILE='SEDTRND.DAT',STATUS='OLD')
+	OPEN(UNIT=4,FILE='SEDTRND.OUT',STATUS='OLD')
+	OPEN(UNIT=5,FILE='SEDTRNDTAB.OUT',STATUS='OLD')
 
 	READ(1,10) RESV
 	READ(1,10) TDATA
 	READ(1,10) UNIT
 	READ(1,10) SERS
 	READ(1,*) IYR
-C     NOS: NO OF YEAR'S OBSERVATION
-C     NS: NUMBER OF ELEVATION
-C     IN READ STATEMENT I REPRESENTS NO OF YEARS OBSERVATION
-
-	READ(1,*) NOS,NS
+C     NOS: NUMBER OF OBSERVATION IN EACH SERIES 
+C     NS: NUMBER OF ELEVATION SERIES
 	
+	READ(1,*) NOS,NS
 	READ(1,*)(EL(J),J=1,NS)
 	DO 25 I=1,NOS
  25   READ(1,*)(X(I,J),J=1,NS)
@@ -42,26 +44,26 @@ C     IN READ STATEMENT I REPRESENTS NO OF YEARS OBSERVATION
      	CALL STATSPARAMETER
 	1(NOS,X,NS,AVGX1,SDX1,CVX1,CSX1,CKX1,X1MAX,X1MIN)
 	
-		
+	CALL AUTOCORELN(NOS,X,NS,ACOR,MAXK)
+	
 	WRITE(4,20) RESV,TDATA,UNIT,SERS,(EL(J),J=1,NS)
+
 20    FORMAT('RESERVOIR:',6X,A80/'DATA:',11X,A80/'UNIT:',11X,A80/
-     1'SERIES:',9X,A80//'% REL-SED: EL VS. YR'/4X,20(F7.2,1X))
+     1'SERIES:',9X,A80//'% REL-SED: EL VS. YR'/5X, 20(F7.2,1X))
      
 
-	WRITE(5,21) RESV,TDATA,UNIT,SERS
-21    FORMAT('RESERVOIR:',6X,A80/'DATA:',11X,A80/'UNIT:',11X,A80/
-     1'SERIES:',9X,A80//'TESTS CARRY OUT'/33X,12(A5,6X))
+	WRITE(5,21) RESV,TDATA,UNIT,SERS,(EL(J),J=1,NS) 
+21    FORMAT('RESERVOIR:',6X,A30/'DATA:',11X,A30/'UNIT:',11X,A30/
+     1'SERIES:',9X,A30//'ELVN'19X,19(F6.1,1X)//'TESTS CARRY OUT'/)
      
 		
 
 	IYR=IYR-1
+
     	DO 45 I=1,NOS
 	IYR=IYR+1
-C	T(I): Year, i.e.,age of reservoir in year 
-	T(I)=I
-
-45	WRITE(4,102)IYR,(X(I,J),J=1,NS)
-102   FORMAT(I4,1X,20(F6.2,2X))
+ 45	WRITE(4,102)IYR,(X(I,J),J=1,NS)
+102   FORMAT(I4,2X,20(F6.2,2X))
 	
 
       WRITE(4,105)(X1MAX(J),J=1,NS)
@@ -72,18 +74,38 @@ C	T(I): Year, i.e.,age of reservoir in year
 	WRITE(4,110)(CSX1(J),J=1,NS)
 	WRITE(4,111)(CKX1(J),J=1,NS)
  	
-105	FORMAT(//'MAX',2X,20(F6.2,2X))
-106   FORMAT('MIN',2X,20(F6.2,2X))
-107   FORMAT('MEAN',1X,20(F6.2,2X))
-108   FORMAT('SDEV',1X,20(F6.2,2X))
-109   FORMAT(//'COEFICIENTS'/'VARN',1X,20(F6.2,2X))
-110   FORMAT('SKEW',1X,20(F6.2,2X))
-111   FORMAT('KURT',1X,20(F6.2,2X))
+105	FORMAT(//'MAX',3X,20(F6.2,2X))
+106   FORMAT('MIN',3X,20(F6.2,2X))
+107   FORMAT('MEAN',2X,20(F6.2,2X))
+108   FORMAT('SDEV',2X,20(F6.2,2X))
+109   FORMAT(//'COEFICIENTS'/'VARN',2X,20(F6.2,2X))
+110   FORMAT('SKEW',2X,20(F6.2,2X))
+111   FORMAT('KURT',2X,20(F6.2,2X))
 	
+	WRITE(4,125)
+125   FORMAT(/'AUTOCORELN:'//1X,'LAG')
+      DO 65 K=1,MAXK
+ 65	WRITE(4,115) K,(ACOR(K,J),J=1,NS)
+ 115  FORMAT(1X,I3,2X,20(F6.3,2X))
+
 	
-	
-	CALL LREG(NOS,X,T,NS,NTREND)
-	
+	CALL CROSSING(NOS,X,NS,NTREND)
+	CALL TURNP(NOS,X,NS,NTREND)
+	CALL RANKDIF(NOS,X,NS,NTREND)
+	CALL KENDAL(NOS,X,NS,NTREND)
+	CALL RUN(NOS,X,NS,NTREND)
+	CALL WALD(NOS,X,NS,NTREND)
+	CALL RUNAB(NOS,X,NS,NTREND)
+	CALL RNEUMAN(NOS,X,NS,NTREND)
+	CALL MANN(NOS,X,NS,NTREND)
+ 	CALL RHO(NOS,X,NS,NTREND)
+   	CALL NEUMAN(NOS,X,NS,NTREND)
+	CALL AUTO(NOS,X,NS,NTREND)
+	CALL LREG(NOS,X,NS,NTREND)
+	CALL HURST(NOS,X,NS,KOBS)
+  	CALL BOOTSTRAP(NOS,X,NS,KOBS,NTREND)
+
+
 	DO 195 J=1,NS
 	SUMNPART(J)=0
 	DO 195 I=1,10
@@ -96,10 +118,10 @@ C	T(I): Year, i.e.,age of reservoir in year
 
       WRITE(5,201)(SUMNPART(J),J=1,NS)
 201	FORMAT(/'SYNOPSIS OF SHORT TERM TESTS'//
-     1'SUCS NONPARAMETRIC TESTS',1X,365(I10,1X))
+     1'SUCS NONPARAMETRIC TEST',19(I6,1X))
 
 	WRITE(5,202)(SUMPART(J),J=1,NS)
-202	FORMAT('SUCS PARAMETRIC TESTS',4X,365(I10,1X))
+202	FORMAT('SUCS PARAMETRIC TEST',3X,19(I6,1X)//)
 
 	NSPNP5=0
 	NSPNP4=0
@@ -183,8 +205,38 @@ c	SUBROUTINE SUBPROGRAMME	FOR STATISTICAL PARAMETER CALCULATION
       RETURN
 	END
 
+C     SUBROUTINE AUTOCORELATION
 	
-C	 SUBROUTINE FOR REGRESSION FOR y=a+bx; 
+      SUBROUTINE AUTOCORELN(N,X,NS,ACOR,MAXK)
+	DIMENSION X(10000,NS),XT(10000,NS),YT(10000,NS),
+	1XXT(10000),YYT(10000),
+	1ACOR(2500,NS)
+
+	COMMON/BLKA/ SXX,SYY,SXY,XAV,YAV,SLOP,CONST,COR,SE,SESLOP
+		 
+      MAXK = INT(N/4)
+	DO 40 J=1,NS
+	 
+	L=0
+     	DO 40 K=1,MAXK
+	L=L+1
+      DO 10 I=1,N-L
+	XT(I,J)=X((I+L),J)
+	YT(I,J)=X(I,J)
+	
+	XXT(I)=XT(I,J)
+10	YYT(I)=YT(I,J)
+		
+      CALL REGRESN(N-L,XXT,YYT)
+	 
+	ACOR(L,J)=COR
+
+ 40	CONTINUE
+
+      RETURN
+      END
+	
+C	 SUBROUTINE FOR REGRESSION
 	SUBROUTINE REGRESN(N,X,Y)
 	DIMENSION X(10000),Y(10000)
 	COMMON/BLKA/ SXX,SYY,SXY,XAV,YAV,SLOP,CONST,COR,SE,SESLOP
@@ -220,28 +272,1066 @@ C	 SUBROUTINE FOR REGRESSION FOR y=a+bx;
 	RETURN
 	END
 
+c	subroutine for testing the randomness using median crossing test.
+c       Ref. Fisz. M. (1963)' Probability theory and Mathematical Statistics'
+c       , Wiley, Newyork.
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+	SUBROUTINE CROSSING(N,X,NS,NTREND)
+
+	DIMENSION X(10000,NS),X1(10000,NS),XA(10000,NS),
+	1U(NS),EU(NS),VARU(NS),SU(NS),Z(NS),NTREND(15,NS)
+	REAL MEDIAN(NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'MEDIAN CROSSING'
+	WRITE(4,1)
+1 	format(//'SHORT-TERM'/
+     1'NON PARAMETRIC'/
+     1/'Median Crosng'/)
+
+	DO 75 J=1,NS
+	DO 10 I=1,N
+10	X1(I,J)=X(I,J)
+	
+	CALL SORTX(X1,N,NS,XA)
+
+C	do 5 i=1,n
+C5	write(4,51)j,i,xa(i,j)
+51	FORMAT(2i5,1x,' sorted events',1x,(f10.2))
+
+	MEDRANK=N/2
+	IF(((N/2.0)-MEDRANK).EQ.0) THEN
+	MEDIAN(J)=(XA(MEDRANK,J)+XA(MEDRANK+1,J))/2
+	ENDIF
+
+	IF(((N/2.0)-MEDRANK).GT.0) THEN
+	MEDIAN(J)=XA(MEDRANK+1,J)
+	ENDIF
+
+C	write(4,2)medrank,median(j)
+2	FORMAT ('median rank is', i4, 'and median is ',f8.1)
+
+	U(J)=0
+	Do 50 I=1,N-1
+	IF(X(I,J).GE.MEDIAN(J).AND.X(I+1,J).LT.MEDIAN(J))U(J)=U(J)+1
+	IF(X(I,J).LT.MEDIAN(J).AND.X(I+1,j).GE.MEDIAN(J))U(J)=U(J)+1
+     	
+c	write(2,52)i,u
+52	FORMAT(i4,f10.1)
+50	CONTINUE
+
+
+	EU(J)=(N-1)/2.
+	VARU(J)=(N-1)/4.
+	SU(J)=VARU(J)**0.5
+	Z(J)=(U(J)-EU(J))/SU(J)
+75	CONTINUE
+
+	WRITE(4,53)(MEDIAN(J),J=1,NS)
+	WRITE(4,54)(U(J),J=1,NS)
+      WRITE(4,55)(EU(J),J=1,NS)
+      WRITE(4,56)(SU(J),J=1,NS)
+53	FORMAT('MED',3X,20(F6.3,2x))
+54    FORMAT('u',5x,365(f6.3,2x))
+55    FORMAT('eu',4x,365(f6.3,2x))
+56    FORMAT( 'su',4X,365(f6.3,2x))
+	WRITE(4,7)(Z(j),j=1,NS)
+7	FORMAT('Z',5x,20(F6.3,2x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(1,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAN'
+	NTREND(1,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+      
+	WRITE(5,22)
+22 	FORMAT('SHORT TERM TESTS'/'NON PARAMETRIC'//)
+
+	WRITE(5,25)(NTREND(1,J),J=1,NS)
+25    FORMAT('MEDIAN-CROSSING',8X,19(I6,1X))
+
+	RETURN
+	END
+
+
+	SUBROUTINE SORTX(X,N,NS,XA)
+	DIMENSION X(10000,NS),XA(10000,NS),Y(10000,NS)
+	REAL * 4 X,XA,Y
+		
+	DO 60 J=1,NS
+      DO 60 I=1,N
+60	Y(I,J)=X(I,J)
+
+C     CALCULATION OF DESCENDING ORDER
+    	DO 40 J=1,NS
+      DO 40 K=1,N
+	JJ=N-K
+      DO 30 L=1,JJ
+      IF (Y(L,J).LE.Y((L+1),J)) GO TO 30
+	TEMP=Y(L,J)
+	Y(L,J)=Y((L+1),J)
+	Y((L+1),J)=TEMP
+30    CONTINUE
+	XA(K,J)=Y(L,J)
+40    CONTINUE
+      RETURN
+	END
+
+
+C     SUBROUTINE FOR TURNING POINT TEST
+	SUBROUTINE TURNP(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),NP(NS),NT(NS),NTURNP(NS),EP(NS),VARP(NS),
+	1SP(NS),Z(NS),NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*) 'TURNING POINT'
+	WRITE(4,1)
+1	FORMAT(//'Turning Point'/)
+	DO 75 J=1,NS
+	
+	NP(J)=0
+	NT(J)=0
+	DO 51 I=2,N-1
+	IF(X(I,J).GT.X((I-1),J).AND.X(I,J).GT.X((I+1),J)) NP(J)=NP(J)+1
+	IF(X(I,J).LT.X((I-1),J).AND.X(I,J).LT.X((I+1),J)) NT(J)=NT(J)+1
+51	CONTINUE
+	NTURNP(J)=NP(J)+NT(J)
+		
+C	COMPUTE STATISTICS
+	EP(J)=2.*(N-2.)/3.
+	VARP(J)=(16.*N-29.)/90.
+	SP(J)=SQRT(VARP(J))
+	Z(J)=(NTURNP(J)-EP(J))/(SQRT(VARP(J)))
+75    CONTINUE
+
+	WRITE(4,4)(NP(J), J=1,NS)
+4	FORMAT('PEAK',2X,20(I6,2x))
+	WRITE(4,5)(NT(J),J=1,NS)
+5	FORMAT('TROF',2X,20(I6,2x))
+	WRITE(4,6)(NTURNP(J),J=1,NS)
+6	FORMAT('TURNP',1X,20(I6,2X))
+	WRITE(4,7)(EP(J),J=1,NS)
+7     FORMAT('EP',4X,20(F6.3,2x))
+	WRITE(4,11)(SP(J),J=1,NS)
+11    FORMAT('SP',4X,20(F6.3,2x))
+	WRITE(4,9)(Z(J),J=1,NS)
+9	FORMAT('Z',4x,20(F7.3,1x))
+
+C	TEST THE SIGNIFICANCE
+ 	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(2,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAN'
+	NTREND(2,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+
+   	WRITE(5,25)(NTREND(2,J),J=1,NS)
+25    FORMAT('TURNING-POINT',10X,19(I6,1X))
+
+   	RETURN
+	END
+
+c	subroutine for testing the randomness using rank difference test.
+c	Meacheam ,I. (1968),' Correlation in sequential data- three sample 
+c       indicators.' Civil eng. Trans. , Inst. of Engineers. Aus. 
+c       CE 10(2): 225-228.
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+	SUBROUTINE RANKDIF(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),IRANK(10000,NS),U(NS),DIF(NS),EU(NS),
+	1VARU(NS),SU(NS),Z(NS),NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'RANK DIFFERENCE'
+	WRITE(4,1)
+1	FORMAT(//'Rank Differ'/)
+	CALL RANK(N,X,NS,IRANK)
+	DO 75 J=1,NS
+	U(J)=0.
+	DO I=2,N
+	DIF(J)=IRANK(I,J)-IRANK((I-1),J)
+	U(J)=U(J)+ABS(DIF(J))
+	END DO
+
+	EU(J)=(N+1)*(N-1)/3.
+	VARU(J)=(N-2)*(N+1)*(4*N-7.)/90.
+	SU(J)=VARU(J)**0.5
+	Z(J)=(U(J)-EU(J))/SU(J)
+75    CONTINUE
+
+	
+ 	WRITE(4,54)(U(J),J=1,NS)
+      WRITE(4,55)(EU(J),J=1,NS)
+      WRITE(4,56)(SU(J),J=1,NS)
+54    FORMAT('u',4x,20(f7.2,1x))
+55    FORMAT('eu',3x,20(f7.2,1x))
+56    FORMAT( 'su',3X,20(f7.2,1x))
+	WRITE(4,7)(Z(j),j=1,NS)
+7	FORMAT('Z',4x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(3,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAN'
+	NTREND(3,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(3,J),J=1,NS)
+25    FORMAT('RANK-DIFFERENCE',8X,19(I6,1X))
+	
+	RETURN
+	END
+
+c	subroutine to find out the rank of different observations.
+
+	SUBROUTINE RANK(N,X,NS,IRANK)
+	DIMENSION X(10000,NS),IRANK(10000,NS)
+
+	DO 20 J=1,NS
+	DO 20 I=1,N
+	IRANK(I,J)=0
+	DO 20 K=1,N
+	IF(X(I,J).GE.X(K,J))IRANK(I,J)=IRANK(I,J)+1
+20	CONTINUE
+
+	RETURN
+	END
+
+
+c	subroutine for kendal rank correlation test
+
+	SUBROUTINE KENDAL(N,X,NS,NTREND)
+	DIMENSION 
+	1X(10000,NS),NP(NS),T(NS),VART(NS),ST(NS),TS(NS),NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'KENDALS RANK CORRELATION'
+	WRITE(4,1)
+1	FORMAT(//'Kendalls Rank'/'Correlation'/)
+
+	DO 75 J=1,NS
+      NP(J)=0
+      DO 51 I=1,N
+      K=I+1
+      DO 52 I1=K,N
+      IF(X(I1,J).GT.X(I,J))NP(J)=NP(J)+1
+ 52   CONTINUE
+ 51   CONTINUE
+      T(J)=((4.*NP(J))/(N*(N-1.)))-1
+      VART(J)=2.*(2*N+5.)/(9.*N*(N-1))
+	ST(J)=SQRT(VART(J))
+      TS(J)=T(J)/SQRT(VART(J))
+75    CONTINUE
+
+     	WRITE(4,54)(NP(J),J=1,NS)
+	WRITE(4,55)(T(J),J=1,NS)
+      WRITE(4,56)(ST(J),J=1,NS)
+54    FORMAT('NP',3x,20(I7,1x))
+55    FORMAT('T',4x,20(f7.2,1x))
+56    FORMAT( 'ST',3X,20(f7.2,1x))
+	WRITE(4,7)(TS(J),J=1,NS)
+7	FORMAT('TS',3x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(TS(J).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='RTRN'
+	NTREND(4,J)=1
+	ENDIF
+      IF(ABS(TS(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(4,J)=0
+	ENDIF
+	IF(TS(J).LE.-1.96)THEN
+ 	DECSN1(J)='<=-1.96'
+      DECSN2(J)='FTRN'
+	NTREND(4,J)=1
+	ENDIF
+
+60    CONTINUE
+
+   	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+
+
+20    FORMAT('|TS|',1x,20(A7,1X))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+
+	WRITE(5,25)(NTREND(4,J),J=1,NS)
+25    FORMAT('KENDAL RANK COR',8X,19(I6,1X))
+
+
+	RETURN
+	END
+
+
+
+
+c	subroutine for testing the randomness using run test.
+c     Ref. Gutman, I. , Wilks, S.S. and Hunter J.S. (1971) 'Introductory 
+c     Engineering Statistics, John Wiley and Sons, Inc. pp. 331-332.
+c	Other Reference.
+
+	SUBROUTINE RUN(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),X1(10000,NS),XA(10000,NS),U(NS),
+	1EU(NS),VARU(NS),SU(NS),Z(NS),NTREND(15,NS)
+	REAL MEDIAN(NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'RUN TEST'
+	WRITE(4,1)
+1	FORMAT(//'Run test'/)
+      DO 75 J=1,NS
+	DO I=1,N
+	X1(I,J)=X(I,J)
+	END DO
+
+	CALL SORTX(X1,N,NS,XA)
+c	write(*,51)(x1(i,j),i=1,n)
+51	format(' sorted events'/(10f7.1))
+	
+
+C     MEDIAN CALCULATION
+	MEDRANK=N/2
+ 	IF(((N/2.0)-MEDRANK).EQ.0) THEN
+	MEDIAN(J)=(XA(MEDRANK,J)+XA(MEDRANK+1,J))/2
+	ENDIF
+
+	IF(((N/2.0)-MEDRANK).GT.0) THEN
+	MEDIAN(J)=XA(MEDRANK+1,J)
+	ENDIF
+ 	
+
+	
+c	write(*,2)medrank,median(j)
+2	format (' median rank is' i4 'and median is 'f8.1)
+	U(J)=0
+	DO I=1,N-1
+	IF(X(I,J).GE.MEDIAN(J).AND.X(I+1,J).LT.MEDIAN(J))U(J)=U(J)+1
+	IF(X(I,J).LT.MEDIAN(J).AND.X(I+1,J).GE.MEDIAN(J))U(J)=U(J)+1
+	END DO
+ 	
+
+c	write(*,52)i,u(j)
+52	format(i4,f10.1)
+	M=MEDRANK
+	EU(J)=M+1
+	VARU(J)=M*(M-1)/(2.*M-1)
+	SU(J)=VARU(J)**0.5
+	Z(J)=(U(J)-EU(J))/SU(J)
+	 
+75    CONTINUE
+
+	WRITE(4,53)(MEDIAN(J),J=1,NS)
+ 	WRITE(4,54)(U(J),J=1,NS)
+      WRITE(4,55)(EU(J),J=1,NS)
+      WRITE(4,56)(SU(J),J=1,NS)
+53	FORMAT('MED',2x,20(F7.2,1x))
+54    FORMAT('u',4x,20(F7.2,1x))
+55    FORMAT('eu',3x,20(F7.2,1x))
+56    FORMAT( 'su',3X,20(F7.2,1x))
+	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(5,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(5,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(5,J),J=1,NS)
+25    FORMAT('RUN TEST',15X,19(I6,1X))
+
+	RETURN
+	END
+
+c	subroutine for testing the randomness using Wald-Wolfowitz(1943) test.
+c	Wald,A. and Wolfowitz, J.(1943),' An exact test for randomness in the
+c       non parametric case based on serial correlation', Ann. Math. Stat.,
+c       Vol. 14, pp. 378-388.
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+
+	SUBROUTINE WALD(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),
+	1S1(NS),S2(NS),S3(NS),S4(NS),R(NS),
+	1U(NS),EU(NS),VARU(NS),SU(NS),Z(NS),NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'WALD WOLFOWITZ'
+      WRITE(4,1)
+1	FORMAT(//'Wald-Wolfoitz'/)
+
+      DO 75 J=1,NS
+	R(J)=0.
+	S1(J)=0.
+	S2(J)=0.
+	S3(J)=0.
+	S4(J)=0.
+
+	DO I=1,N
+	IF (I.EQ.N) GO TO 51	
+	R(J)=R(J)+X(I,J)*X(I+1,J)
+51	S1(J)=S1(J)+X(I,J)
+	S2(J)=S2(J)+X(I,J)**2.
+	S3(J)=S3(J)+X(I,J)**3.
+	S4(J)=S4(J)+X(I,J)**4.
+	END DO
+	
+
+	R(J)=R(J)+X(1,J)*X(N,J)
+	U(J)=R(J)
+	EU(J)= (S1(J)**2.-S2(J))/(N-1.)
+	
+	
+	VARU(J)=
+	1(S2(J)**2-S4(J))/(N-1.) -((S1(J)**2-S2(J))/(N-1.))**2+
+     1(S1(J)**4-4*S2(J)*S1(J)**2
+     1+4*S1(J)*S3(J)+S2(J)**2-2.*S4(J))/((N-1)*(N-2))
+	  
+ 	if(varu(j).lt.0) varu(j)=.000001 
+	SU(J)=VARU(J)**0.5
+	
+	Z(J)=(U(J)-EU(J))/SU(J)
+	
+75    CONTINUE
+	
+	
+  	WRITE(4,54)(INT(U(J)),J=1,NS)
+      WRITE(4,55)(INT(EU(J)),J=1,NS)
+      WRITE(4,56)(INT(SU(J)),J=1,NS)
+54    FORMAT('u',4x,20(I7,1x))
+55    FORMAT('eu',3x,20(I7,1x))
+56    FORMAT( 'su',3X,20(I7,1x))
+	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(6,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(6,J)= 0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(6,J),J=1,NS)
+25    FORMAT('WALD-WOLFOWITZ',9X,19(I6,1X))
+
+	RETURN
+	END
+
+c	subroutine for testing the randomness using runs above and below the median for general randomness .
+c       Ref. Shiau, S.Y. and Condie, R. (1980),' Statistical tests for 
+c	independence, trend, homogeneity and randomness', Hydrologic 
+c	Applications Divisions, Water Resources Branch, Inland Waters 
+c	Directorate, Environment Canada, Ottawa, Ont.
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+
+	SUBROUTINE RUNAB(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),X1(10000,NS),XA(10000,NS),
+     1U(NS),EU(NS),SU(NS),Z(NS),NTREND(15,NS)
+
+	REAL MEDIAN(NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'RUN ABOVE & BELOW MEDIAN'
+	WRITE(4,1)
+1	FORMAT(//'Runs Above &'/'Below Median'/)
+	
+      DO 75 J=1,NS
+	DO I=1,N
+	X1(I,J)=X(I,J)
+	END DO
+
+	CALL SORTX(X1,N,NS,XA)
+c	write(4,51)(x1(i),i=1,n)
+51	format(' sorted events'/(10f7.1))
+	
+	MEDRANK=N/2
+ 	IF(((N/2.0)-MEDRANK).EQ.0) THEN
+	MEDIAN(J)=(XA(MEDRANK,J)+XA(MEDRANK+1,J))/2
+	ENDIF
+
+	IF(((N/2.0)-MEDRANK).GT.0) THEN
+	MEDIAN(J)=XA(MEDRANK+1,J)
+	ENDIF
+
+c	write(*,2)medrank,median
+2	format (' median rank is' i4 'and median is 'f8.1)
+	
+      RUAB=0
+	N1=0
+	N2=0
+	DO I=1,N-1
+	IF (X(I,J).LT.MEDIAN(J))THEN
+	N1=N1+1
+	ELSE
+	N2=N2+1
+	END IF
+
+	IF(X(I,J).GE.MEDIAN(J).AND.X(I+1,J).LT.MEDIAN(J))	RUAB=RUAB+1
+	IF(X(I,J).LT.MEDIAN(J).AND.X(I+1,J).GE.MEDIAN(J))	RUAB=RUAB+1
+	END DO
+
+	IF (X(N,J).LT.MEDIAN(J))THEN
+	N1=N1+1
+	ELSE
+	N2=N2+1
+	END IF
+
+c	write(*,*)n1,n2,ruab
+	U(J)=RUAB
+	EU(J)=(2*N1*N2/(N1+N2))+1.
+	SU(J)=(2*N1*N2*(2*N1*N2-N1-N2))/((N1+N2)**2*(N1+N2-1))**0.5
+	IF(SU(J).EQ.0.0)SU(J)=0.000000000001
+
+	Z(J)=(U(J)-EU(J))/SU(J)
+75	CONTINUE
+
+	WRITE(4,53)(MEDIAN(J),J=1,NS)
+  	WRITE(4,54)(U(J),J=1,NS)
+      WRITE(4,55)(EU(J),J=1,NS)
+      WRITE(4,56)(SU(J),J=1,NS)
+53	FORMAT('MED',2X,20(F7.2,1x))
+54    FORMAT('u',4x,20(f7.2,1x))
+55    FORMAT('eu',3x,20(f7.2,1x))
+56    FORMAT( 'su',3X,20(f7.2,1x))
+	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(7,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(7,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(7,J),J=1,NS)
+25    FORMAT('RUN-MED-ABV-BEL',8X,19(I6,1X))
+
+
+	RETURN
+	END
+
+c	subroutine for testing the randomness using rank von Neumann ratio
+c       test.
+c	Madansky, A. (1988), prescription for working statisticians', 
+c       Springer, New york, pp. 93-118.
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+	SUBROUTINE RNEUMAN(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),IRANK(10000,NS),
+	1U(NS),EU(NS),VARU(NS),SU(NS),Z(NS),NTREND(15,NS)
+ 	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'RANK VON NEUMANN RATIO'
+	WRITE(4,1)
+1	FORMAT(//'Rank Von'/ 'Neuman Ratio'/)
+
+	CALL RANK(N,X,NS,IRANK)
+      DO 75 J=1,NS
+		
+	UU=0.
+	DO I=2,N
+	DIF=IRANK(I,J)-IRANK(I-1,J)
+	UU=UU+DIF**2.
+	END DO
+
+	V=UU/(N*(N**2-1)/12)
+	U(J)=V
+	EU(J)=2.
+	VARU(J)=20./(5*N+7)
+	SU(J)=VARU(J)**0.5
+	Z(J)=(U(J)-EU(J))/SU(J)
+75    CONTINUE
+
+      WRITE(4,54)(U(J),J=1,NS)
+      WRITE(4,55)(EU(J),J=1,NS)
+      WRITE(4,56)(SU(J),J=1,NS)
+54    FORMAT('u',4x,20(F7.2,1x))
+55    FORMAT('eu',3x,20(F7.2,1x))
+56    FORMAT( 'su',3X,20(F7.2,1x))
+ 	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(8,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(8,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(8,J),J=1,NS)
+25    FORMAT('RANK-VON-NEUMAN',8X,19(I6,1X))
+
+
+	RETURN
+	END
+
+c	Subroutine for Mann-Kendall test
+
+	SUBROUTINE MANN(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),NC(10000),VAL(10000),
+	1S(NS),T11(NS),TOO(NS),NTREND(15,NS),
+	1Z(NS),VAR(NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'MANN KENDAL TEST'
+	WRITE(4,1)
+1	format(
+     1//'Mann Kendall'/)
+
+	DO 75 M=1,NS
+	SUM=0.0
+	DO K=1,N-1
+	DO J=K+1,N
+	S1=X(J,M)-X(K,M)
+
+	IF(S1.GT.0)THEN
+	S1=1
+	ELSEIF(S1.eq.0)THEN
+	S1=0
+	ELSE
+	S1=-1
+	ENDIF
+
+	SUM=SUM+S1
+	ENDDO
+	ENDDO
+
+	S(M)=SUM
+
+c	Tie evaluation
+	DO I=1,N
+	NC(I)=0
+	ENDDO
+
+	DO I=1,N
+	VAL(I)=X(I,M)
+
+	DO J=1,N
+
+	IF(X(J,M).EQ.VAL(I))then
+	NC(I)=NC(I)+1
+	ENDIF
+
+	ENDDO
+	ENDDO
+
+c	Find max value of NC(I)
+
+	MNC=0
+	TO=0
+	T1=0
+	DO I=1,N
+	IF(NC(I).GT.MNC)MNC=NC(I)
+	ENDDO
+
+	DO J=2,MNC
+	NM=0
+
+	DO I=1,N
+	IF(NC(I).EQ.J)THEN
+	NM=NM+1
+	ENDIF
+	ENDDO
+	
+	T1=J*(J-1)*(2*J+5)
+	TO=TO+T1*NM/J
+	ENDDO
+	
+	T11(M)=T1
+	TOO(M)=TO
+		
+C	WRITE(4,*)Tl
+C5	FORMAT(5x'THE VALUE OF tl IS'F7.2)	
+C	WRITE(4,6)TO
+C6	Format(5x'THE VALUE OF tie IS'F10.2)
+
+	VAR(M)=(N*(N-1)*(2*N+5)-TOO(M))/18
+	IF(S(M).GT.0)THEN
+	Z(M)=(S(M)-1)/SQRT(VAR(M))
+	ELSEIF(S(M).eq.0)THEN
+	Z(M)=0
+	ELSE
+	Z(M)=(S(M)+1)/SQRT(VAR(M))
+	ENDIF
+
+75    CONTINUE
+	WRITE(4,54)(S(J),J=1,NS)
+      WRITE(4,55)(T11(J),J=1,NS)
+      WRITE(4,56)(TOO(J),J=1,NS)
+	WRITE(4,57)(SQRT(VAR(J)),J=1,NS)
+
+54    FORMAT('S',4x,20(F7.1,1x))
+55    FORMAT('TI',3x,20(F7.1,1x))
+56    FORMAT( 'Ct',3X,20(F7.1,1x))
+57    FORMAT( 'SDS',2X,20(F7.2,1x))
+  	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(9,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(9,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+
+	WRITE(5,25)(NTREND(9,J),J=1,NS)
+25    FORMAT('MANN-KENDAL',12X,19(I6,1X))
+
+
+	RETURN
+	END
+
+
+C	Subroutine Rho Test
+
+	SUBROUTINE RHO(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),IRANK(10000,NS),
+	1SSUM(NS),D(NS),VAR(NS),Z(NS),NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'SPEARMANS RHO'
+	WRITE(4,1)
+1	FORMAT(//'Spearmans Rho'/)
+
+	CALL RANK(N,X,NS,IRANK)
+	DO 75 J=1,NS
+		
+	SM=0.0
+	DO I=1,N
+	SM=SM+(IRANK(I,J)-I)**2
+	ENDDO
+
+	SSUM(J)=SM
+	D(J)=1-(6*SSUM(J)/(N*(N*N-1)))
+	VAR(J)=1./(N-1)
+	Z(J)=D(J)/SQRT(VAR(J))
+
+75    CONTINUE
+
+	WRITE(4,53)(SSUM(J),J=1,NS)
+   	WRITE(4,54)(D(J),J=1,NS)
+      WRITE(4,55)(SQRT(VAR(J)),J=1,NS)
+53	FORMAT('SUM',2X,20(F7.1,1x))
+54    FORMAT('D',4x,20(f7.2,1x))
+55    FORMAT('SD',3x,20(f7.2,1x))
+	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z:',3x,20(F7.2,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(10,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(10,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(10,J),J=1,NS)
+25    FORMAT('SPEARMAN RHO',11X,19(I6,1X))
+
+
+	RETURN
+	END
+
+
+
+
+
+c	subroutine for testing the randomness using Von Neumann ratio test.
+c	Madansky, A. (1988), prescription for working statisticians', 
+c       Springer, New york, pp. 93-118.
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+	SUBROUTINE NEUMAN(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),
+	1U(NS),EU(NS),VARU(NS),SU(NS),Z(NS),NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+
+	WRITE(*,*)'VON NEUMANN RATIO'
+	WRITE(5,22)
+22 	FORMAT(/'PARAMETRIC')
+
+	WRITE(4,1)
+1	FORMAT(//'SHORT-TERM'/
+     1'PARAMETRIC'//'Von Neuman'/'Ratio'/)
+C	CALL RANK(N,X,NS,IRANK)
+
+	DO 75 J=1,NS
+	UU=0.
+	SUM=0.0
+	DO I=1,N
+	SUM=SUM+X(I,J)
+	END DO
+
+	XBAR=SUM/N
+	VAR=0.
+	DO I=1,N
+	VAR=VAR+(X(I,J)-XBAR)**2
+	END DO
+
+	DO I=2,N
+	DIF=X(I,J)-X(I-1,J)
+	UU=UU+DIF**2.
+	END DO
+
+	V=UU/VAR
+	U(J)=V
+	EU(J)=2.
+	VARU(J)=4.*(N-2)/(N**2-1)
+	SU(J)=VARU(J)**0.5
+	Z(J)=(U(J)-EU(J))/SU(J)
+75    CONTINUE
+
+	WRITE(4,54)(U(J),J=1,NS)
+      WRITE(4,55)(EU(J),J=1,NS)
+      WRITE(4,56)(SU(J),J=1,NS)
+54    FORMAT('u',4x,20(F7.3,1x))
+55    FORMAT('eu',3x,20(F7.3,1x))
+56    FORMAT( 'su',3X,20(F7.3,1x))
+	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.3,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(11,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(11,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(11,J),J=1,NS)
+25    FORMAT('VON-NEUMN-RATIO',8X,19(I6,1X))
+
+
+	RETURN
+	END
+
+c	subroutine for testing the randomness using auto correlation test.
+c	Yevjevich, V. (1971),' Stochastic processes in Hydrology', 
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+
+	SUBROUTINE AUTO(N,X,NS,NTREND)
+	DIMENSION X(10000,NS),R1(NS),ER1(NS),SR1(NS),Z(NS),VARR1(NS),
+	1NTREND(15,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
+
+	WRITE(*,*)'AUTO CORRELATION TEST'
+	WRITE(4,1)
+1	FORMAT(//'Auto Correln'/)
+
+	DO 75 J=1,NS
+	SUM=0.0
+	DO I=1,N
+	SUM=SUM+X(I,J)
+	END DO
+
+	XBAR=SUM/N
+	VARXX=0.
+	DO I=1,N
+	VARXX=VARXX+(X(I,J)-XBAR)**2
+    	END DO
+
+	VARXX1=0.
+	DO I=2,N
+	VARXX1=VARXX1+(X(I,J)-XBAR)*(X(I-1,J)-XBAR)
+	END DO
+
+	R1(J)=VARXX1/VARXX
+	ER1(J)=-1./N
+	VARR1(J)=(N**3-3.*N**2+4)/(N**4-N**2)
+	SR1(J)=VARR1(J)**0.5
+	Z(J)=(R1(J)-ER1(J))/SR1(J)
+
+75    CONTINUE
+	
+      WRITE(4,54)(R1(J),J=1,NS)
+      WRITE(4,55)(ER1(J),J=1,NS)
+      WRITE(4,56)(SR1(J),J=1,NS)
+54    FORMAT('R1',3x,20(F7.3,1x))
+55    FORMAT('ER1',2x,20(F7.3,1x))
+56    FORMAT( 'SR1',2X,20(F7.3,1x))
+ 	WRITE(4,7)(Z(J),J=1,NS)
+7	FORMAT('Z',4x,20(F7.3,1x))
+
+C	TEST THE SIGNIFICANCE
+	DO 60 J=1,NS
+     	IF(ABS(Z(J)).GE.1.96)THEN
+	DECSN1(J)='>=1.96'
+      DECSN2(J)='NRAN'
+	NTREND(12,J)=1
+	ENDIF
+	IF(ABS(Z(J)).LT.1.96)THEN
+      DECSN1(J)='<1.96'
+	DECSN2(J)='RAND'
+	NTREND(12,J)=0
+	ENDIF
+60    CONTINUE
+
+	WRITE(4,20)(DECSN1(J),J=1,NS)
+	WRITE(4,21)(DECSN2(J),J=1,NS)
+20    FORMAT('|Z|',3x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
+
+	WRITE(5,25)(NTREND(12,J),J=1,NS)
+25    FORMAT('AUTO CORELATION',8X,19(I6,1X))
+
+	RETURN
+	END
 
 
 c	subroutine for linear regreesion test
 
- 	SUBROUTINE LREG(N,X,T,NS,NTREND)
+ 	SUBROUTINE LREG(N,X,NS,NTREND)
 	DIMENSION X(10000,NS),XX(10000),T(10000),
 	1CORL(NS),CONS(NS),SLOPE(NS),XBAR(NS),YBAR(NS),
-     1SDX(NS),SDY(NS),VARXY(NS),SESLOPE(NS),ERRS(NS),S(NS),SB(NS),TB(NS)
-	1,NTREND(15,NS),SA(NS)
+     1SDX(NS),SDY(NS),VARXY(NS),SESLOPE(NS),ERRS(NS),S(NS),SB(NS),SA(NS)
+     1,TB(NS),NTREND(15,NS),AU(NS),AL(NS),BU(NS),BL(NS)
 
 	CHARACTER * 80 DECSN1(NS),DECSN2(NS)
 	COMMON/BLKA/ SXX,SYY,SXY,XAV,YAV,SLOP,CONST,COR,SE,SESLOP
 
+	WRITE(*,*)'LINEAR REGRESSION'
 	WRITE(4,1)
-1	FORMAT(//'Linear Regrsn (T-X)'/)
+1	FORMAT(//'Linear Regrsn'/'Series: (T-X)'/)
 	
       DO 75 J=1,NS
 
 	DO I=1,N
-C	T(I)=I
+	T(I)=I
 	XX(I)=X(I,J)
 	ENDDO
+
+C     S:Standard error of regression, SB:Standard error of b, SA:Standard error of a; where y=a+bx; ERRS: mean square error
+C     TB: test statistic for linear regression
 
 	CALL REGRESN(N,T,XX)
 	CORL(J)=COR
@@ -257,15 +1347,15 @@ C	T(I)=I
 	S(J)=(ERRS(J)/(N-2))**0.5
  	SB(J)=SQRT(((S(J))**2)/SXX)
 	SA(J)=SQRT(S(J))*SQRT((1/N)+((XAV**2)/SXX))
-C     Confidence interval for b
-C	For sample=64; degree of freedom=64-2=62, 5% significance, t=2.01
+c     confidence interval for a and b; t=2.07	i.e. upper and lower limit of a & b (AU, AL,BU & BL)
 
-
+	AU(J)=CONST+2.07*S(J)*SQRT((1/N)+((XAV**2)/SXX))
+	AL(J)=CONST-2.07*S(J)*SQRT((1/N)+((XAV**2)/SXX))
+	BU(J)=SLOP+2.07*S(J)/SQRT(SXX)
+	BL(J)=SLOP-2.07*S(J)/SQRT(SXX)
 	TB(J)=SLOPE(J)/SB(J)
 75    CONTINUE
 
-C     S: Standard error of estimate, SB: Standard error of b, SA: Standard error of a; where y=a+bx; ERRS: mean square error
-C     TSB: test statistic for b, TSA: test statistic for a, TB: test statistic for linear regression
 
 	WRITE(4,53)(CORL(J),J=1,NS)
    	WRITE(4,54)(CONS(J),J=1,NS)
@@ -280,48 +1370,336 @@ C     TSB: test statistic for b, TSA: test statistic for a, TB: test statistic f
    	WRITE(4,62)(S(J),J=1,NS)
       WRITE(4,63)(SB(J),J=1,NS)
 	WRITE(4,65)(SA(J),J=1,NS)
+	WRITE(4,66)(AU(J),J=1,NS)
+ 	WRITE(4,67)(AL(J),J=1,NS)
+	WRITE(4,68)(BU(J),J=1,NS)
+	WRITE(4,69)(BL(J),J=1,NS)
       WRITE(4,64)(TB(J),J=1,NS)
+	
 
-52	FORMAT('SESL',1X,20(F6.2,2x))
-53	FORMAT('CORL',1X,20(F6.2,2x))
-54    FORMAT('CONST',20(f6.2,2x))
-55    FORMAT('SLOP',1x,20(f6.2,2x))
-56    FORMAT( 'TBAR',1X,20(f6.2,2x))
-57	FORMAT('XAVG',1X,20(F6.2,2x))
-58    FORMAT('SDT',2x,20(f6.2,2x))
-59    FORMAT('SDX',2x,20(f6.2,2x))
-60    FORMAT( 'VARTX',20(f6.2,2x))
-61	FORMAT('ERR',2X,20(F6.1,2x))
-62    FORMAT('SEEST',20(f6.2,2x))
-63    FORMAT('SEOFB',20(f6.2,2x))
-64    FORMAT( 'TS',3X,20(f6.2,2x))
-65    FORMAT('SEOFA',20(f6.2,2x))
+52	FORMAT('SESL',1X,20(F7.2,1x))
+53	FORMAT('CORL',1X,20(F7.3,1x))
+54    FORMAT('CONST',20(f7.2,1x))
+55    FORMAT('SLOP',1x,20(f7.2,1x))
+56    FORMAT( 'TBAR',1X,20(f7.2,1x))
+57	FORMAT('XAVG',1X,20(F7.2,1x))
+58    FORMAT('SDT',2x,20(f7.2,1x))
+59    FORMAT('SDX',2x,20(f7.2,1x))
+60    FORMAT( 'VARTX',20(f7.2,1x))
+61	FORMAT('MSE',2X,20(F7.1,1x))
+62    FORMAT('SEREG',20(f7.2,1x))
+63    FORMAT('SEOFB',20(f7.2,1x))
+64    FORMAT( 'TSTAT',20(f7.2,1x))
+65    FORMAT('SEOFA',20(f7.2,1x))
+66	FORMAT('A UP',1x,20(f7.2,1x))
+67	FORMAT('A LW',1x,20(f7.2,1x))
+68	FORMAT('B UP',1x,20(f7.2,1x))
+69	FORMAT('B LW',1x,20(f7.2,1x))
 
 
 C	TEST THE SIGNIFICANCE
 
- 	WRITE(*,*)'CHECK 2.01 FROM T.DISTBN; VARIES WITH SAMPLE SIZE'
-	
+ 	WRITE(*,*)'CHECK 2.07 FROM T.DISTBN; VARIES WITH SAMPLE SIZE'
+
 	DO 80 J=1,NS
-     	IF(ABS(TB(J)).GE.2.01)THEN
-	DECSN1(J)='>=2.01'
+     	IF(ABS(TB(J)).GE.2.07)THEN
+	DECSN1(J)='>=2.07'
       DECSN2(J)='NRAN'
 	NTREND(13,J)=1
 	ENDIF
-	IF(ABS(TB(J)).LT.2.01)THEN
-      DECSN1(J)='<2.01'
-	DECSN2(J)='RAN'
+	IF(ABS(TB(J)).LT.2.07)THEN
+      DECSN1(J)='<2.07'
+	DECSN2(J)='RAND'
 	NTREND(13,J)=0
 	ENDIF
 80    CONTINUE
 
 	WRITE(4,20)(DECSN1(J),J=1,NS)
 	WRITE(4,21)(DECSN2(J),J=1,NS)
-20    FORMAT('|TS|',1x,20(A6,2X))
-21    FORMAT('5% SIG',1X,20(A4,4X))
+20    FORMAT('|TS|',2x,20(A8))
+21    FORMAT('5% SIG',2X,20(A5,3X))
 
 	WRITE(5,25)(NTREND(13,J),J=1,NS)
-25    FORMAT('LINEAR REGRESSION',8X,365(I10,1X))
+25    FORMAT('LINEAR REGRESSION',6X,19(I6,1X))
 
 	RETURN
 	END
+
+
+
+c	subroutine for checking the presence of long term dependence in time 
+c       series. The subroutine computes Hurst,s k using parametric approach .
+c
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+c
+c	Lin, Y. and Lye, L.M. (1994),' Modelling long term dependence based on
+c	cumulative departures of annual flow series', Journal of Hydrology, 
+c       pp. 105-121. 
+	SUBROUTINE HURST(N,X,NS,K)
+      DIMENSION X(10000,NS),DEP(10000,NS),DEPA(10000,NS),
+	1XBAR(NS),S(NS),RANG(NS),K(NS)
+	REAL K
+
+	WRITE(*,*)'HURST'
+	DO 75 J=1,NS
+c	compute mean
+	SUM=0.0
+	DO I=1,N
+	SUM=SUM+X(I,J)
+	ENDDO
+
+	XBAR(J)=SUM/N
+
+c	compute range
+	DEP(1,J)=0.0
+	SUM=0.0
+	DO I=1,N
+
+	IF(I.EQ.1)THEN											
+	DEP(I,J)=X(I,J)-XBAR(J)
+	ELSE
+	DEP(I,J)=DEP(I-1,J)+(X(I,J)-XBAR(J))
+	ENDIF
+
+	SUM=SUM+(X(I,J)-XBAR(J))**2
+	ENDDO
+	
+	S(J)=(SUM/N)**0.5
+      CALL SORTX(DEP,N,NS,DEPA)
+
+C     K: HURST COEFNT
+	RANG(J)=DEPA(1,J)-DEPA(N,J)
+ 	K(J)=ALOG(RANG(J)/S(J))/ALOG(N/2.)
+	
+75    CONTINUE
+
+	WRITE(4,1)(K(J),J=1,NS)
+1	FORMAT(//'LONG-TERM'/'PARAMETRIC'
+     1//'Hurst'/'Coef',1x,20(f7.4,1x))
+	WRITE(4,2)(DEPA(N,J),J=1,NS)
+	WRITE(4,3)(DEPA(1,J),J=1,NS)
+	WRITE(4,4)(RANG(J),J=1,NS)
+2	FORMAT('MNDEP',20(F7.2,1x))
+3	FORMAT('MXDEP',20(F7.2,1x))
+4     FORMAT('RANGE',20(f7.2,1x))
+
+	RETURN
+	END
+
+c	subroutine for checking the presence of long term dependence in time 
+c       series using non parametric (bootstrap ) approach.
+c
+c	Lye,L.M. and Lin, Y. (1994),'Long term dependence in annual peak 
+c       flows of Canadian rivers', Journal of Hydrology, Vol. 160, pp 89-103.
+c
+c	Lin, Y. and Lye, L.M. (1994),' Modelling long term dependence based on
+c	cumulative departures of annual flow series', Journal of Hydrology, 
+c       pp. 105-121.
+ 
+	SUBROUTINE BOOTSTRAP(N,X,NS,KOBS,NTREND)
+      DIMENSION X(10000,NS),X1(10000),
+	1DEP(10000,NS),ZZ(10000),DEPA(10000,NS),
+	1NNK(NS),NSAMP(NS),NCRITICAL(NS),
+	1AVGXH(NS),SDXH(NS),CVXH(NS),CSXH(NS),CKXH(NS),
+	1XHMAX(NS),XHMIN(NS),NTREND(15,NS)
+
+	DOUBLE PRECISION SEED
+	REAL KOBS(NS),K(10000,NS)
+	CHARACTER * 80 DECSN1(NS),DECSN2(NS),DECSN3(NS),DECSN4(NS)
+
+	DO 75 L=1,NS
+	WRITE(*,3)'BOOT-STRAP',L
+3     FORMAT(A12,5X,'SERIES:',2X,I4)
+	SEED=1972D0
+c	generate uniform distributed random number between ( 1 and n)
+	AN=N
+	NK=0
+	NSAMP(L)=10000
+
+	DO 40 J=1,NSAMP(L)
+	CALL DURAND(SEED,N,ZZ)
+
+	DO 10 I=1,N
+	NY=ZZ(I)*AN
+	IF(NY.EQ.0)NY=1
+c	IF((L.EQ.1).AND.(J.EQ.8))WRITE(*,*)L,ZZ(I),AN,NY,X(NY,L)
+10	X1(I)=X(NY,L)
+	
+	
+c	compute mean
+	SUM=0.0
+	DO 25 I=1,N
+25	SUM=SUM+X1(I)
+
+	XBAR=SUM/N
+c	compute range
+	DEP(1,L)=0.0
+	SUM=0.0
+		
+	DO 30 I=1,N
+	IF (I.eq.1)THEN
+	DEP(I,L)=X1(I)-XBAR
+	ELSE
+	DEP(I,L)=DEP(I-1,L)+(X1(I)-XBAR)
+	ENDIF
+
+	SUM=SUM+(X1(I)-XBAR)**2
+30	CONTINUE
+
+	S=(SUM/N)**0.5
+C     K: HURST COEFFNT FOR SAMPLES
+		
+	CALL SORTX(DEP,N,NS,DEPA)
+	RANGE=DEPA(1,L)-DEPA(N,L)
+
+	K(J,L)=ALOG(RANGE/S)/ALOG(N/2.)
+C	WRITE(5,9)J,K(J,L)
+C9    FORMAT(I5,1X,F5.2)
+	IF(K(J,L).GT.KOBS(L))NK=NK+1
+	NNK(L)=NK
+40	CONTINUE
+75    CONTINUE
+	
+	write(4,1)
+1	format(/'Statistics of'/'Hurst Coeffs.'/'(Gentd Sampls)'//)
+
+	CALL STATSPARAMETER
+	1(NSAMP(1),K,NS,AVGXH,SDXH,CVXH,CSXH,CKXH,XHMAX,XHMIN)
+
+
+	WRITE(4,31)(AVGXH(L),L=1,NS)
+	WRITE(4,32)(SDXH(L),L=1,NS)
+	WRITE(4,33)(CVXH(L),L=1,NS)
+	WRITE(4,34)(CSXH(L),L=1,NS)
+	WRITE(4,35)(CKXH(L),L=1,NS)
+	WRITE(4,36)(XHMAX(L),L=1,NS)
+	WRITE(4,37)(XHMIN(L),L=1,NS)
+31    FORMAT('AVG',2X,20(F7.3,1X))
+32    FORMAT('STDEV',20(F7.3,1X))
+33    FORMAT(/'COEFFICIENTS'/'VAR',2X,20(F7.2,1X))
+34    FORMAT('SKEW',1X,20(F7.2,1X))
+35    FORMAT('KURT',1X,20(F7.2,1X))
+36    FORMAT(/'MAX',2X,20(F7.2,1X))
+37    FORMAT('MIN',2X,20(F7.2,1X))
+
+	WRITE(4,6)(NSAMP(L),L=1,NS)
+6 	format(/'Samples'/'Gentd' 20(i7,1X))
+	WRITE(4,2)(NNK(L),L=1,NS)
+2	format(/'H-Coef>Obs'/'NK',3x,20(i7,1X))
+
+C	TEST THE SIGNIFICANCE AT ALPHA LEVEL
+	ALPHA=0.05
+	ALPHA1=ALPHA*100
+
+ 	DO 60 L=1,NS
+	NCRITICAL(L)=NSAMP(L)*ALPHA
+     	IF(NNK(L).LE.NCRITICAL(L))THEN
+	DECSN1(L)='<=CRTCL'
+      DECSN2(L)='  LTT'
+	NTREND(15,L)=1
+	ENDIF
+	IF(NNK(L).GT.NCRITICAL(L))THEN
+      DECSN1(L)='>CRTCL'
+	DECSN2(L)='NLTT'
+	NTREND(15,L)=0
+	ENDIF
+60    CONTINUE
+	WRITE(4,19)ALPHA1,(NCRITICAL(L),L=1,NS)
+	WRITE(4,20)(DECSN1(L),L=1,NS)
+ 	WRITE(4,21)ALPHA1,(DECSN2(L),L=1,NS)
+19    FORMAT(/'CRITICAL'/F4.1,'%',20(I7,1X))
+20    FORMAT('NK',3x,20A8)
+21    FORMAT(F3.1,'%',1X,'SG',20(A6,2X)//)
+
+	WRITE(5,57)(NTREND(15,J),J=1,NS)
+57    FORMAT(//'LONG TERM TESTS'/'NON PARAMETRIC'//
+     1'BOOT STRAP',13X,19(I6,1X))
+
+	 
+C	TEST THE SIGNIFICANCE AT ALPHA LEVEL
+	ALPHA=0.1
+	ALPHA1=ALPHA*100
+
+ 	DO 65 L=1,NS
+	NCRITICAL(L)=NSAMP(L)*ALPHA
+     	IF(NNK(L).LE.NCRITICAL(L))THEN
+	DECSN3(L)='<=CRTCL'
+      DECSN4(L)='LTT'
+	ENDIF
+	IF(NNK(L).GT.NCRITICAL(L))THEN
+      DECSN3(L)='>CRTCL'
+	DECSN4(L)='NLTT'
+	ENDIF
+65    CONTINUE
+
+	WRITE(4,19)ALPHA1,(NCRITICAL(L),L=1,NS)
+	WRITE(4,20)(DECSN3(L),L=1,NS)
+ 	WRITE(4,22)ALPHA1,(DECSN4(L),L=1,NS)
+22    FORMAT(F4.1,'%',1X, 'SG',1X,20(A6,2X))
+
+	RETURN
+	END
+
+	SUBROUTINE RANDOM(E,N)        
+      DIMENSION E(N)                
+      IX=1972                
+      DO 20 I=1,N                   
+      CALL GAUSS (IX,1.0,0.,V)      
+ 20   E(I)=V                        
+      RETURN                        
+      END
+	                              
+c	subroutine for generation of normally distributed random numbers.
+      SUBROUTINE GAUSS (IX,S,AM,V)  
+      A=0.0                         
+      DO 50 I=1,12                  
+      Y=RAND(0.0,1.0,IX)
+ 50   A=A+Y         
+      V=(A-6.0)*S+AM
+      RETURN        
+      END 
+	          
+C	FUNCTION RAND TO GENERATE UNIFORMLY DISTRIBUTED RANDOM
+C	NUMBERS BETWEEN A TO B.
+	FUNCTION RAND(A,B,K)
+	M=32768
+	KC=32767
+	KA=259
+	K=KA*K+KC
+C	WRITE(*,*)K
+	Z=FLOAT(K)/FLOAT(M)-K/M
+C	WRITE(*,*)Z
+	K=Z*M
+C	WRITE(*,*)K
+	RAND=Z*(B-A)+A
+C	WRITE(*,*)RAND
+	RETURN
+	END
+
+
+C	subroutine for generation of uniformly distributed random numbers.
+c	subroutine given by Dr. Don Burn from Hosking and Wallis.
+C	subroutine durand(seed,n,x)
+c	pseudo random number generator
+c
+c	parameters of routine:
+c  	seed	*in/out* seed for random number generator. should be a whole 
+c			 number in the range 2d0 to 2147483647d0
+c	n	* input* number of numbers to be generated
+c	x	*output* array of length n. On exit, contains random numbers.
+c
+c	method used: Multiplicative congruential generator with base 2**31-1
+c	and multiplier 7**5 (P.A.W. Lewis et al., 1969, IBM Syst. J.)
+
+	subroutine durand(seed,n,x)
+	implicit double precision (a-h,o-v)
+	real x(10000)
+	data amult,base/ 16807D0, 2147483647D0 /
+	do 10 i=1,n
+	seed=dmod(seed*amult,base)
+	x(i)=sngl(seed/base)
+10	continue
+	return
+	end
+
